@@ -1,172 +1,224 @@
-# 🏥 Clinic Appointment Manager
+# Clinic Appointment Manager
 
-A full-stack web application for booking and managing clinic appointments — built as a 1-day student project.
-
----
-
-## 📸 Overview
-
-Patients can browse doctors, book time slots, and manage their appointments. Clinic admins get a dedicated dashboard to track and update every booking. Double-bookings are blocked at the database level.
+**Leapfrog Student Partnership Program — Mini Project Submission**
+**Project:** Clinic Appointment Manager
+**Author:** Srijit Gyawali
 
 ---
 
-## 🎯 Tech Stack
+## Business Need
 
-| Layer | Tech |
-|-------|------|
-| Frontend | React 18, Vite, Tailwind CSS, React Router v6, Axios |
-| Backend | Node.js, Express |
-| Database | MongoDB (Atlas) + Mongoose |
-| Auth | JWT + bcryptjs |
+Patients today still rely on phone calls, walk-ins, or third-party apps to schedule clinic visits — a process that is slow, error-prone, and unavailable outside office hours. Clinic staff manually track appointments on spreadsheets or basic tools with no real-time visibility into booking conflicts.
 
----
+**This application solves three core problems:**
 
-## 📁 Project Structure
+- Patients cannot book appointments digitally without calling the clinic
+- Double-bookings happen because there is no system-level conflict prevention
+- Clinic admins have no centralised view to track and update appointment statuses
 
-```
-clinic-appointment-manager/
-├── backend/
-│   ├── config/         # MongoDB connection
-│   ├── controllers/    # Route handlers
-│   ├── middleware/      # JWT protect + adminOnly
-│   ├── models/         # Mongoose schemas
-│   ├── routes/         # Express routers
-│   ├── seed.js         # Database seeder
-│   ├── server.js       # Entry point
-│   └── .env.example
-└── frontend/
-    └── src/
-        ├── api/        # Axios instance
-        ├── components/ # Navbar, ProtectedRoute
-        ├── context/    # AuthContext (JWT state)
-        └── pages/      # All route pages
-```
+The Clinic Appointment Manager gives patients a self-service portal to find doctors, pick available time slots, and manage their bookings — while giving clinic staff a dedicated admin dashboard to oversee all appointments in real time.
 
 ---
 
-## 🔑 Features
+## Requirements
 
-1. **Auth** — Patient signup/login/logout · Admin login (seeded)
-2. **Browse Doctors** — Grid of doctor cards with specialty and available slots
-3. **Book Appointment** — Pick a date + time slot; double-booking rejected by DB unique index
-4. **My Appointments** — Upcoming + past appointments; cancel with one click
-5. **Admin Dashboard** — Table of all appointments; update status via dropdown
+### Functional Requirements
 
----
+| # | Requirement |
+|---|-------------|
+| FR-1 | A patient must be able to register an account, log in, and log out securely |
+| FR-2 | A logged-in patient must be able to browse available doctors by specialty, select a date and time slot, and confirm a booking |
+| FR-3 | The system must prevent double-booking — two patients cannot book the same doctor on the same date and slot; the second attempt must be rejected with a clear error |
+| FR-4 | A patient must be able to view their upcoming and past appointments and cancel an upcoming one |
+| FR-5 | An admin must be able to log in and view all appointments across all patients, then update each appointment's status (Pending → Confirmed → Completed / Cancelled) |
 
-## 🗄️ Data Models
+### Non-Functional Requirements
 
-### User
-```js
-{ name, email (unique), password (bcrypt), role: "patient" | "admin" }
-```
-
-### Doctor
-```js
-{ name, specialty, availableSlots: [String] }
-```
-
-### Appointment
-```js
-{
-  patient: ObjectId → User,
-  doctor:  ObjectId → Doctor,
-  date:    Date,
-  slot:    String,   // e.g. "09:30"
-  status:  "Pending" | "Confirmed" | "Cancelled" | "Completed"
-}
-// Unique compound index on { doctor, date, slot }
-```
+| # | Requirement |
+|---|-------------|
+| NFR-1 | **Security** — Passwords must be stored as bcrypt hashes (never plaintext); all protected API routes must validate a signed JWT before processing the request |
+| NFR-2 | **Reliability** — The double-booking constraint must be enforced at the database level (unique compound index) so it holds even under concurrent requests, not just at the application layer |
 
 ---
 
-## 🌐 API Endpoints
+## User Stories
+
+### User Story 1 — Patient Registration & Login
+
+> **As a** new patient,
+> **I want to** create an account with my name, email, and password and then sign in,
+> **So that** I can access the appointment booking features securely.
+
+**Acceptance Criteria:**
+- Registration fails with a clear message if the email is already taken
+- Password is never stored in plain text
+- On successful login, the system issues a JWT that is used for all subsequent requests
+- An invalid email or wrong password returns a 401 with the message "Invalid credentials"
+
+---
+
+### User Story 2 — Book an Appointment
+
+> **As a** logged-in patient,
+> **I want to** browse doctors by specialty, pick an available date and time slot, and confirm my booking,
+> **So that** I can schedule a clinic visit without calling the front desk.
+
+**Acceptance Criteria:**
+- The doctor list shows each doctor's name, specialty, and available time slots
+- The date picker only allows future dates
+- Selecting a slot and confirming creates an appointment with status "Pending"
+- If the slot is already taken, the system returns a 409 error: "That slot is already booked for this doctor on this date"
+- The confirmed appointment immediately appears in the patient's appointments list
+
+---
+
+### User Story 3 — Admin Status Management
+
+> **As a** clinic admin,
+> **I want to** see all appointments in a single dashboard and update their status,
+> **So that** I can confirm, complete, or cancel bookings and keep the clinic schedule accurate.
+
+**Acceptance Criteria:**
+- The admin dashboard displays patient name, doctor, date, time slot, and current status for every appointment
+- Admin can update status to: Pending, Confirmed, Completed, or Cancelled
+- The table can be filtered by status to quickly find pending appointments
+- Only users with the "admin" role can access this dashboard; patients are redirected
+
+---
+
+## Tech Stack Decision
+
+| Layer | Technology | Reasoning |
+|-------|-----------|-----------|
+| **Frontend** | React 18 + Vite | React's component model fits a multi-page app with shared auth state. Vite gives near-instant HMR in development with minimal config overhead |
+| **Routing** | React Router v6 | Industry-standard client-side routing; nested route protection via a `ProtectedRoute` wrapper pattern |
+| **Styling** | Tailwind CSS | Utility-first CSS eliminates context-switching between files; responsive design is handled inline without writing custom media queries |
+| **HTTP Client** | Axios | Interceptors allow the JWT to be attached to every request in one place rather than in each component |
+| **Backend** | Node.js + Express | JavaScript across the full stack reduces mental overhead; Express is minimal and easy to structure by feature (routes → controllers → models) |
+| **Database** | MongoDB Atlas + Mongoose | Document model maps naturally to the appointment schema. A unique compound index on `{ doctor, date, slot }` enforces the no-double-booking rule at the DB engine level — a constraint that cannot be bypassed by application bugs |
+| **Auth** | JWT + bcryptjs | Stateless JWT auth fits a REST API well (no session store needed). bcrypt's adaptive cost factor protects passwords against brute-force if the DB is ever leaked |
+
+---
+
+## Architecture
 
 ```
-POST   /api/auth/signup              Public   → { token, user }
-POST   /api/auth/login               Public   → { token, user }
+┌─────────────────────────────────────────────────────────┐
+│                        BROWSER                          │
+│                                                         │
+│   React SPA (Vite)                                      │
+│   ├── React Router  →  page-level route guards          │
+│   ├── AuthContext   →  JWT stored in localStorage       │
+│   └── Axios instance → Authorization: Bearer <token>   │
+└───────────────────────┬─────────────────────────────────┘
+                        │  HTTP/JSON  (port 5173 dev proxy)
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│                    EXPRESS SERVER                        │
+│                    (Node.js · port 5000)                 │
+│                                                         │
+│   Middleware layer                                      │
+│   ├── cors()          → allow frontend origin           │
+│   ├── express.json()  → parse request bodies            │
+│   ├── protect()       → verify JWT, attach req.user     │
+│   └── adminOnly()     → guard admin-only routes         │
+│                                                         │
+│   Route handlers                                        │
+│   ├── POST  /api/auth/signup   /login                   │
+│   ├── GET   /api/doctors                                │
+│   ├── POST  /api/appointments                           │
+│   ├── GET   /api/appointments/me                        │
+│   ├── PATCH /api/appointments/:id/cancel                │
+│   ├── GET   /api/appointments        (admin)            │
+│   └── PATCH /api/appointments/:id/status  (admin)       │
+└───────────────────────┬─────────────────────────────────┘
+                        │  Mongoose ODM (TCP)
+                        ▼
+┌─────────────────────────────────────────────────────────┐
+│                  MONGODB ATLAS (cloud)                   │
+│                                                         │
+│   Collections                                           │
+│   ├── users        { name, email, passwordHash, role }  │
+│   ├── doctors      { name, specialty, slots[] }         │
+│   └── appointments { patient, doctor, date, slot,       │
+│                      status }                           │
+│                      ↳ unique index: {doctor,date,slot} │
+└─────────────────────────────────────────────────────────┘
+```
 
-GET    /api/doctors                  Patient  → list of doctors
-POST   /api/doctors                  Admin    → create doctor
+### Request Flow (Booking Example)
 
-GET    /api/appointments/me          Patient  → my appointments
-POST   /api/appointments             Patient  → book { doctorId, date, slot }
-PATCH  /api/appointments/:id/cancel  Patient  → cancel own appointment
-GET    /api/appointments             Admin    → all appointments
-PATCH  /api/appointments/:id/status  Admin    → update { status }
+```
+Patient clicks "Confirm Booking"
+  → Axios POST /api/appointments  { doctorId, date, slot }
+    → protect() middleware verifies JWT
+      → appointmentController.bookAppointment()
+        → normalize date to midnight UTC
+          → Appointment.create()  ← Mongoose
+            → MongoDB checks unique index { doctor, date, slot }
+              ✓ Insert succeeds  → 201 + appointment object
+              ✗ Duplicate key    → 409 "Slot already booked"
 ```
 
 ---
 
-## 🚀 Quick Start
+## Sprint 1 Backlog
+
+| Priority | Task | Description |
+|----------|------|-------------|
+| 1 | **Project scaffolding** | Initialise Express backend and Vite + React frontend; wire up folder structure, environment variables, and MongoDB connection |
+| 2 | **Auth module** | Build User model with bcrypt hashing, JWT sign/verify helpers, signup + login controllers, and the `protect` / `adminOnly` middleware |
+| 3 | **Doctor & Appointment models** | Define Mongoose schemas; add the unique compound index on `{ doctor, date, slot }`; seed 4 doctors and test credentials |
+| 4 | **Booking API** | Implement all appointment endpoints (create, list-mine, cancel, list-all, update-status); write manual tests via Postman or curl |
+| 5 | **Core frontend pages** | Build Login, Signup, Doctors list, and Book Appointment pages with the Axios instance and AuthContext; verify the full patient booking flow end-to-end |
+
+---
+
+## Project Setup
 
 ### Prerequisites
 - Node.js 18+
 - A free [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) cluster
 
-### 1 · Backend
+### Backend
 
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Edit .env — paste your MongoDB Atlas URI and a JWT secret string
-node seed.js        # Wipes DB and seeds admin + patient + 4 doctors
-npm run dev         # Starts on http://localhost:5000
+cp .env.example .env        # fill in MONGO_URI and JWT_SECRET
+node seed.js                # seed admin, patient, and 4 doctors
+npm run dev                 # http://localhost:5000
 ```
 
-### 2 · Frontend (new terminal)
+### Frontend
 
 ```bash
 cd frontend
 npm install
-npm run dev         # Starts on http://localhost:5173
+npm run dev                 # http://localhost:5173
 ```
 
-Open **http://localhost:5173** in your browser.
+### Demo Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| Patient | patient@clinic.com | patient123 |
+| Admin | admin@clinic.com | admin123 |
 
 ---
 
-## 🌱 Seed Data
+## API Reference
 
-After running `node seed.js`:
-
-| Role    | Email                  | Password    |
-|---------|------------------------|-------------|
-| Patient | patient@clinic.com     | patient123  |
-| Admin   | admin@clinic.com       | admin123    |
-
-**4 Doctors seeded:**
-- Dr. Sarah Mitchell — General Physician
-- Dr. James Patel — Pediatrician
-- Dr. Anika Sharma — Dermatologist
-- Dr. Robert Chen — Cardiologist
-
-Each with 10 slots: `09:00 → 11:30` and `14:00 → 15:30`
-
----
-
-## ⚙️ Environment Variables
-
-Create `backend/.env` from `backend/.env.example`:
-
-```env
-PORT=5000
-MONGO_URI=mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/clinic?retryWrites=true&w=majority
-JWT_SECRET=any_long_random_string
 ```
+POST   /api/auth/signup              →  { token, user }
+POST   /api/auth/login               →  { token, user }
 
----
+GET    /api/doctors           [auth] →  doctor[]
+POST   /api/doctors          [admin] →  doctor
 
-## 🎨 Design System
-
-The frontend follows a Cal.com-inspired design system:
-- **Canvas:** `#ffffff` white background
-- **Primary CTA:** `#111111` near-black buttons
-- **Cards:** `#f5f5f5` light-gray surface cards
-- **Footer:** `#101010` dark navy
-- **Display font:** Manrope 600 (Cal Sans substitute) with negative letter-spacing
-- **Body font:** Inter 400/500/600
-
----
-
+GET    /api/appointments/me  [auth]  →  appointment[]
+POST   /api/appointments     [auth]  →  appointment
+PATCH  /api/appointments/:id/cancel  →  appointment
+GET    /api/appointments     [admin] →  appointment[]
+PATCH  /api/appointments/:id/status  →  appointment
+```
