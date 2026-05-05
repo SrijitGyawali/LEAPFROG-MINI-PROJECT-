@@ -170,6 +170,3 @@ The frontend follows a Cal.com-inspired design system:
 
 ---
 
-## 📄 License
-
-MIT — built for educational purposes.
